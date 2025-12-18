@@ -1,16 +1,20 @@
 import { useCallback, useState } from "react";
-import { Calendar } from "../components/Calendar";
+import { DateSlider } from "../components/Slider";
 import MapView from "../components/MapView";
 import RightStatsPanel from "../components/RightStatsPanel";
-import type { RouteControls } from "../components/routePredictions/AnimatedRouteOverlay";
-import SMSNotifications from '../components/SMSNotifications';
+import type { RouteControls } from "../types/domain";
+import type { FeatureCollection } from "geojson";
+import RouteToolsPanel from "../components/RouteToolsPanel";
+import PredictIcePanel from "../components/PredictIcePanel";
+import FloatingChatbot from "../components/FloatingChatbot";
 
 const HomePage = () => {
   const [routeStatus, setRouteStatus] = useState("idle");
   const [routeControls, setRouteControls] = useState<RouteControls>({
-    clearMarkers: () => {},
+    clearMarkers: () => { },
     hasMarkers: false,
   });
+  const [predictedData, setPredictedData] = useState<FeatureCollection | null>(null);
 
   const handleRouteControlsChange = useCallback((controls: RouteControls) => {
     setRouteControls((prev) => {
@@ -21,42 +25,24 @@ const HomePage = () => {
     });
   }, []);
 
-  const routeStatusLabel =
-    routeStatus === "requesting"
-      ? "Calculating route..."
-      : routeControls.hasMarkers
-      ? "Pins ready. Start animation on map."
-      : "Tap the map twice to set route pins.";
-
   return (
     <div className="app-shell">
       <SMSNotifications />
       <div className="map-frame">
-        <div className="tool-bar">
-          <div id="mission-tools-panel">
-            <div className="tool-card tool-card--stacked tool-card--route">
-              <h3>Route Tools</h3>
-              <button
-                type="button"
-                onClick={routeControls.clearMarkers}
-                disabled={!routeControls.hasMarkers || routeStatus === "requesting"}
-              >
-                Clear pins
-              </button>
-              <span className="animated-route-status">{routeStatusLabel}</span>
-            </div>
-          </div>
+        <div className="tool-stack">
+          <RouteToolsPanel routeControls={routeControls} routeStatus={routeStatus} />
+          <PredictIcePanel onPredicted={setPredictedData} />
         </div>
 
-        {/* Persistent vertical date slider, independent of the tool bar */}
-        <Calendar />
-
+        <DateSlider />
         <MapView
           onRouteStatusChange={setRouteStatus}
           onRouteControlsChange={handleRouteControlsChange}
+          predictedData={predictedData}
         />
       </div>
-      <RightStatsPanel />
+      <RightStatsPanel predictedData={predictedData} />
+      <FloatingChatbot />
     </div>
   );
 };

@@ -1,82 +1,111 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useIceExtentContext } from "../context/IceExtentContext";
-import "./Calendar.css";
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import dayjs, { Dayjs } from 'dayjs';
+import "./styles/Calendar.css";
 
-export const Calendar = () => {
-  const { isoDate, setDateFromIso, availableDates, selectedDate, isLoading } = useIceExtentContext();
+type CalendarProps = {
+  value?: string; // ISO date string
+  onChange?: (isoDate: string) => void;
+  propMinDate?: string; // ISO date string
+  availableDates?: string[]; // For disabling dates
+};
 
-  const list = availableDates ?? [];
-  const max = Math.max(list.length - 1, 0);
-  const sliderIndex = useMemo(() => Math.max(0, list.indexOf(isoDate)), [list, isoDate]);
+export const Calendar = ({ value, onChange, propMinDate, availableDates: propAvailableDates }: CalendarProps = {}) => {
+  // Try to get context, but it might not be available in standalone mode
+  let contextValue;
+  try {
+    contextValue = useIceExtentContext();
+  } catch {
+    contextValue = undefined;
+  }
 
-  const [isSliding, setIsSliding] = useState(false);
+  // Use props if provided, otherwise fall back to context
+  const isoDate = value ?? contextValue?.isoDate;
+  const setDateFromIso = onChange ?? contextValue?.setDateFromIso;
+  const availableDates = propAvailableDates ?? contextValue?.availableDates;
 
-  const handleStart = useCallback(() => setIsSliding(true), []);
-  const handleEnd = useCallback(() => setIsSliding(false), []);
+  const availableSet = useMemo(() => new Set(availableDates ?? []), [availableDates]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const idx = Number(e.target.value);
-    const nextIso = list[idx];
-    if (nextIso) setDateFromIso(nextIso);
-  };
+  const { minDate: computedMinDate, maxDate: computedMaxDate } = useMemo(() => {
+    if (!availableDates || availableDates.length === 0) {
+      return {
+        minDate: propMinDate ? dayjs(propMinDate) : undefined,
+        maxDate: undefined
+      };
+    }
+    const sorted = [...availableDates].sort();
+    return {
+      minDate: dayjs(sorted[0]),
+      maxDate: dayjs(sorted[sorted.length - 1])
+    };
+  }, [availableDates, propMinDate]);
 
-  const formatDateOnly = (d?: Date | null) => {
-    if (!d) return "";
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(d.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-
-  // Calculate bubble position as percent across the track
-  const percent = max > 0 ? (sliderIndex / max) * 100 : 0;
-  const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const [isJumpOpen, setIsJumpOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
 
   useEffect(() => {
-    if (bubbleRef.current) {
-      bubbleRef.current.style.left = `${percent}%`;
+    if (isoDate) {
+      setSelectedDate(dayjs(isoDate));
     }
-  }, [percent]);
+  }, [isoDate]);
+
+  const shouldDisableDate = (date: Dayjs) => {
+    // If no available dates are provided (standalone mode), don't disable any dates
+    if (!availableDates || availableDates.length === 0) {
+      return false;
+    }
+    // Otherwise, disable dates that are not in the available set
+    return !availableSet.has(date.format('YYYY-MM-DD'));
+  };
+
+  const handleGo = () => {
+    if (selectedDate && setDateFromIso) {
+      setDateFromIso(selectedDate.format('YYYY-MM-DD'));
+      setIsJumpOpen(false);
+    }
+  };
 
   return (
-    <div className="calendar-horizontal">
-      <div className="calendar-horizontal__inner">
-        {/* year labels */}
-        <div className="calendar-horizontal__years">
-          <div className="calendar-horizontal__year--start">{list[0]?.slice(0, 4) ?? ""}</div>
-          <div className="calendar-horizontal__year--end">{list[list.length - 1]?.slice(0, 4) ?? ""}</div>
-        </div>
-
-        {/* floating bubble above thumb - left percentage is dynamic */}
-        <div
-          aria-hidden
-          ref={bubbleRef}
-          className={`calendar-horizontal__bubble ${isSliding ? "is-sliding" : ""}`}
+    <div className="calendar-quick-box">
+      <div className="jump-header">
+        <button
+          type="button"
+          className="jump-trigger"
+          onClick={() => setIsJumpOpen((v) => !v)}
+          disabled={!availableDates?.length}
+          aria-label="Open date picker"
         >
-          {isSliding || isLoading ? (
-            <div className="calendar-horizontal__bubble-inner">
-              <span className="calendar-horizontal__spinner" aria-hidden />
-              <span className="calendar-horizontal__bubble-text">{formatDateOnly(selectedDate)}</span>
-            </div>
-          ) : null}
-        </div>
-
-        {/* slider */}
-        <input
-          className="calendar-horizontal__slider"
-          aria-label="date-slider"
-          type="range"
-          min={0}
-          max={max}
-          step={1}
-          value={sliderIndex}
-          onChange={handleChange}
-          onMouseDown={handleStart}
-          onTouchStart={handleStart}
-          onMouseUp={handleEnd}
-          onTouchEnd={handleEnd}
-          disabled={list.length === 0}
-        />
+          <span
+            style={{
+              filter: 'brightness(0) invert(1)'
+            }}>
+            📅
+          </span>
+        </button>
+      </div>
+      <div className={`jump-calendar ${isJumpOpen ? "is-open" : ""}`}>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DateCalendar
+            value={selectedDate}
+            onChange={(newValue) => setSelectedDate(newValue)}
+            shouldDisableDate={shouldDisableDate}
+            minDate={computedMinDate}
+            maxDate={computedMaxDate}
+            showDaysOutsideCurrentMonth
+            fixedWeekNumber={6}
+          />
+        </LocalizationProvider>
+        <button
+          type="button"
+          onClick={handleGo}
+          disabled={!selectedDate}
+          className="jump-calendar__go"
+        >
+          Go
+        </button>
       </div>
     </div>
   );
