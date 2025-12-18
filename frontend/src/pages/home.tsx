@@ -27,6 +27,7 @@ const HomePage = () => {
 
   return (
     <div className="app-shell">
+      <SMSNotifications />
       <div className="map-frame">
         <div className="tool-stack">
           <RouteToolsPanel routeControls={routeControls} routeStatus={routeStatus} />
