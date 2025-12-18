@@ -55,14 +55,14 @@ const RightStatsPanel = ({ predictedData }: RightStatsPanelProps) => {
     [snapshotDate]
   );
   const temperatureLabel = formatTemperature(temperatureAnomaly);
-  const temperatureMeta = `12-month mean for ${formatDate(snapshotDate)} vs. 1850–1900 baseline`;
+  const temperatureMeta = `12-month mean for ${formatDate(snapshotDate)} vs. 1850-1900 baseline`;
 
   return (
     <aside className="stats-panel">
       <header className="stats-panel__header">
-        <h1 className="stats-panel__title">{('stats.title')}</h1>
+        <h1 className="stats-panel__title">{('Stats Hub')}</h1>
         <p className="stats-panel__subtitle">
-          {('stats.subtitle')}
+          {('Overal Ocean Ice Extent')}
         </p>
       </header>
 
